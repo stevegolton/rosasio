@@ -94,26 +94,19 @@ namespace uvros
                 if (error)
                     throw boost::system::system_error(error);
 
-                Message msg;
-                msg.add_field("message_definition=string-data\n\n");
-                msg.add_field("callerid", m_node_name);
-                msg.add_field("service", m_service_name);
-                msg.add_field("md5sum", ros::service_traits::MD5Sum<MsgType>::value());
-                msg.finish();
-                boost::asio::write(socket, boost::asio::buffer(msg.buf));
+                {
+                    Message msg;
+                    msg.add_field("message_definition=string-data\n\n");
+                    msg.add_field("callerid", m_node_name);
+                    msg.add_field("service", m_service_name);
+                    msg.add_field("md5sum", ros::service_traits::MD5Sum<MsgType>::value());
+                    msg.finish();
+                    boost::asio::write(socket, boost::asio::buffer(msg.buf));
+                }
 
                 namespace ser = ros::serialization;
 
-                uint32_t serial_size = ros::serialization::serializationLength(srv.request);
-                boost::shared_array<uint8_t> buffer(new uint8_t[serial_size]);
-
-                ser::OStream stream(buffer.get(), serial_size);
-                ser::serialize(stream, srv.request);
-                boost::asio::write(socket, boost::asio::buffer(buffer.get(), serial_size));
-
-                for (;;)
                 {
-                    // boost::array<char, 128> buf;
                     boost::system::error_code error;
 
                     uint32_t msglen;
@@ -121,22 +114,62 @@ namespace uvros
 
                     std::cout << "Reading: " << msglen << " bytes\n";
 
-                    if (error == boost::asio::error::eof)
-                        break; // Connection closed cleanly by peer.
-                    else if (error)
-                        throw boost::system::system_error(error); // Some other error.
+                    // if (error == boost::asio::error::eof)
+                    //     break; // Connection closed cleanly by peer.
+                    // else if (error)
+                    //     throw boost::system::system_error(error); // Some other error.
 
                     uint8_t buf[msglen];
-                    len = boost::asio::read(socket, boost::asio::buffer(buf, sizeof(buf)));
+                    len = boost::asio::read(socket, boost::asio::buffer(buf, sizeof(buf)), error);
 
                     std::cout << "Read: " << msglen << " bytes\n";
 
-                    if (error == boost::asio::error::eof)
-                        break; // Connection closed cleanly by peer.
-                    else if (error)
-                        throw boost::system::system_error(error); // Some other error.
+                    // if (error == boost::asio::error::eof)
+                    //     break; // Connection closed cleanly by peer.
+                    // else if (error)
+                    //     throw boost::system::system_error(error); // Some other error.
+                }
 
-                    // std::cout.write(buf.data(), len);
+                {
+                    uint32_t serial_size = ros::serialization::serializationLength(srv.request);
+                    boost::shared_array<uint8_t> buffer(new uint8_t[serial_size]);
+
+                    ser::OStream stream(buffer.get(), serial_size);
+                    ser::serialize(stream, srv.request);
+
+                    boost::asio::write(socket, boost::asio::buffer(&serial_size, sizeof(serial_size)));
+                    boost::asio::write(socket, boost::asio::buffer(buffer.get(), serial_size));
+                }
+
+                {
+                    boost::system::error_code error;
+
+                    uint8_t stat;
+                    size_t len = boost::asio::read(socket, boost::asio::buffer(&stat, sizeof(stat)), error);
+                    std::cout << "Stat: " << stat << "\n";
+
+                    uint32_t msglen;
+                    len = boost::asio::read(socket, boost::asio::buffer(&msglen, sizeof(msglen)), error);
+                    std::cout << "Reading: " << msglen << " bytes\n";
+
+                    uint8_t buf[msglen];
+                    len = boost::asio::read(socket, boost::asio::buffer(buf, sizeof(buf)), error);
+
+                    // if (error == boost::asio::error::eof)
+                    //     break; // Connection closed cleanly by peer.
+                    // else if (error)
+                    //     throw boost::system::system_error(error); // Some other error.
+
+                    std::cout << "Read: " << msglen << " bytes\n";
+
+                    // if (error == boost::asio::error::eof)
+                    //     break; // Connection closed cleanly by peer.
+                    // else if (error)
+                    //     throw boost::system::system_error(error); // Some other error.
+
+                    // Fill buffer with a serialized UInt32
+                    ser::IStream stream(buf, msglen);
+                    ser::deserialize(stream, srv.response);
                 }
             }
         }

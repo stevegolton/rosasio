@@ -3,8 +3,9 @@
 
 bool handler(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &resp)
 {
+    ROS_INFO("CALLED A SERVICE!!");
     resp.success = true;
-    resp.message = "Hello!";
+    resp.message = "Hello from the service!";
 	return true;
 }
 
