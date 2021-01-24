@@ -1,3 +1,5 @@
+#pragma once
+
 #include <boost/asio.hpp>
 #include <ros/service_traits.h>
 #include <ros/serialization.h>
