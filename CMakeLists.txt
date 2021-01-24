@@ -104,7 +104,7 @@ message(${XMLRPC_LIBRARIES})
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES uvros
+#  LIBRARIES rosasio
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
@@ -123,7 +123,7 @@ include_directories(
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
-    src/uvros.cpp
+    src/rosasio.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -209,7 +209,7 @@ target_link_libraries(server
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_uvros.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_rosasio.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

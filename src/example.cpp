@@ -1,10 +1,10 @@
-#include <uvros/node.hpp>
+#include <rosasio/node.hpp>
 #include <std_srvs/Trigger.h>
 #include <std_msgs/String.h>
 
 int main(void)
 {
-    uvros::Node node("dave");
+    rosasio::Node node("dave");
     // auto srv = node.service_client<std_srvs::Trigger>("/service");
 
     // std_srvs::Trigger msg;

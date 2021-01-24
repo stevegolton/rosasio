@@ -13,7 +13,7 @@
 // TODO remove me
 #include <iostream>
 
-namespace uvros
+namespace rosasio
 {
     class Message
     {
@@ -482,4 +482,4 @@ namespace uvros
         std::string m_name;
     };
 
-} // namespace uvros
+} // namespace rosasio
