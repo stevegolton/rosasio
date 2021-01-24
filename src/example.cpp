@@ -17,6 +17,11 @@ int main(void)
         std::cout << "Got msg: " << msg.data << "\n";
     });
 
+    auto timer = node.create_timer(std::chrono::milliseconds(1000), [] () {
+        std::cout << "Timer tick\n";
+    });
+
+
     // std_srvs::Trigger msg;
     // srv->call(msg);
 
