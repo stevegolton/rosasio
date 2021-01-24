@@ -174,7 +174,7 @@ namespace rosasio
             xmlrpc_c::value result;
 
             auto type = ros::message_traits::DataType<MsgType>::value();
-            myClient.call(serverUrl, methodName, "ssss", &result, m_node_name.c_str(), topic_name.c_str(), type, "rosrpc://zeus:12345");
+            myClient.call(serverUrl, methodName, "ssss", &result, m_node_name.c_str(), topic_name.c_str(), type, "rosrpc://localhost:12345");
 
             xmlrpc_c::value_array arr(result);
             const vector<xmlrpc_c::value> param1Value(arr.vectorValueValue());
@@ -208,7 +208,7 @@ namespace rosasio
             xmlrpc_c::value result;
 
             auto type = ros::message_traits::DataType<MsgType>::value();
-            myClient.call(serverUrl, methodName, "sss", &result, m_node_name.c_str(), topic_name.c_str(), "rosrpc://zeus:12345");
+            myClient.call(serverUrl, methodName, "sss", &result, m_node_name.c_str(), topic_name.c_str(), "rosrpc://localhost:12345");
 
             xmlrpc_c::value_array arr(result);
             const vector<xmlrpc_c::value> param1Value(arr.vectorValueValue());
