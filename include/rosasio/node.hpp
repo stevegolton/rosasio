@@ -22,7 +22,8 @@ namespace rosasio
         Node(const std::string &name)
             : m_name(name),
               signals(ioc, SIGINT, SIGTERM),
-              m_xmlrpc_server(ioc)
+              m_xmlrpc_server(ioc),
+              m_hostname(boost::asio::ip::host_name())
         {
             // TODO register node??
             signals.async_wait([this](const boost::system::error_code &ec,
@@ -31,7 +32,7 @@ namespace rosasio
                     ioc.stop();
             });
 
-            m_xmlrpc_server.register_method("requestTopic", [](auto &params) {
+            m_xmlrpc_server.register_method("requestTopic", [this](auto &params) {
                 std::cout << "requestTopic\n";
                 // Make the vector value 'arrayData'
                 std::vector<xmlrpc_c::value> arrayData;
@@ -40,7 +41,7 @@ namespace rosasio
 
                 std::vector<xmlrpc_c::value> ep;
                 ep.push_back(xmlrpc_c::value_string("TCPROS"));
-                ep.push_back(xmlrpc_c::value_string("localhost"));
+                ep.push_back(xmlrpc_c::value_string(m_hostname));
                 ep.push_back(xmlrpc_c::value_int(12346));
                 xmlrpc_c::value_array ep_xml(ep);
 
@@ -86,6 +87,7 @@ namespace rosasio
         std::string m_name;
         boost::asio::signal_set signals;
         rosasio::XmlRpcServer m_xmlrpc_server;
+        std::string m_hostname;
     };
 
 } // namespace rosasio
