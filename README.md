@@ -30,10 +30,10 @@ TODO: un bullet-point this readme!
 - You might be tempted to use threading to speed up performance on multi core systems, but unless they are used carefully, you'll probably end up with a program which is more complex, less stable, significantly harder to debug, and not actually any more performant.
 
 - I've recently been working on a project which involves writing javascript designed to run by a browser, aka "web development".
-- Everyone likes to hate javascript but there is one outstanding feature: the event loop.
+- Everyone loves to hate javascript but it has one outstanding feature: the event loop.
 - Javascript is strictly single threaded, and all blocking IO is done using the this ubiquitous event loop.
-- Because of it ubiquity, all libraries use the event loop for any blocking IO.
-- The amazing this is that javascript can be amazingly responsive and performant, despite the lack of threading.
+- Because of its ubiquity, all libraries use the event loop for any blocking IO.
+- The thing is that javascript can be amazingly responsive and performant, despite the lack of threading.
 
 - To be clear, there are a few special cases where threads _are_ a good idea:
   - Real-time applications where preemption is necessary to meet deadlines
