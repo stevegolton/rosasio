@@ -7,7 +7,8 @@ namespace rosasio
     class Timer
     {
     public:
-        Timer(const std::chrono::milliseconds &interval, std::function<void()> cb, boost::asio::io_context &ioc)
+        template <typename Rep, typename Period>
+        Timer(boost::asio::io_context &ioc, const std::chrono::duration<Rep, Period> &interval, std::function<void()> cb)
             : m_interval(interval),
               m_timer(ioc, interval),
               m_cb(cb)
@@ -27,7 +28,7 @@ namespace rosasio
             m_cb();
         }
 
-        std::chrono::milliseconds m_interval;
+        std::chrono::nanoseconds m_interval;
         boost::asio::steady_timer m_timer;
         std::function<void()> m_cb;
     };

@@ -51,6 +51,8 @@ namespace rosasio
 
             std::string s(m_req.body().data());
 
+            std::cout << s << '\n';
+
             using namespace std;
 
             string methodName;
@@ -79,7 +81,7 @@ namespace rosasio
             }
             else
             {
-                // 404?
+                std::cerr << "No callbacks registered for method with name " << methodName << '\n';
             }
 
             // Send the response
@@ -115,7 +117,7 @@ namespace rosasio
     public:
         XmlRpcServer(boost::asio::io_context &ioc)
             : m_ioc(ioc),
-              m_acceptor(ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 12345))
+              m_acceptor(ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0))
         {
             start_accept();
         }
@@ -123,6 +125,13 @@ namespace rosasio
         void register_method(std::string method, std::function<xmlrpc_c::rpcOutcome(const xmlrpc_c::paramList &)> cb)
         {
             m_callbacks[method] = cb;
+        }
+
+        unsigned short get_port() const
+        {
+            boost::asio::ip::tcp::endpoint le = m_acceptor.local_endpoint(); //THIS LINE SOLVES IT
+            auto port = le.port();
+            return port;
         }
 
     private:
