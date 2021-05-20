@@ -102,8 +102,7 @@ namespace rosasio
 
         virtual ~Publisher()
         {
-            boost::asio::ip::tcp::endpoint le = m_acceptor.local_endpoint();
-            m_node.unregister_publisher<MsgType>(m_topic_name, le.port());
+            m_node.unregister_publisher<MsgType>(m_topic_name);
         }
 
         void publish(const MsgType &msg)

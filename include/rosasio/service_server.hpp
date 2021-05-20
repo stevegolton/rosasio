@@ -24,30 +24,6 @@ namespace rosasio
         {
         }
 
-        // void publish(const MsgType &msg)
-        // {
-        //     if (!initialized)
-        //         return;
-
-        //     namespace ser = ros::serialization;
-
-        //     uint32_t serial_size = ros::serialization::serializationLength(msg);
-        //     boost::shared_array<uint8_t> buffer(new uint8_t[serial_size]);
-
-        //     ser::OStream stream(buffer.get(), serial_size);
-        //     ser::serialize(stream, msg);
-
-        //     try
-        //     {
-
-        //         boost::asio::write(m_sock, boost::asio::buffer(&serial_size, sizeof(serial_size)));
-        //         boost::asio::write(m_sock, boost::asio::buffer(buffer.get(), serial_size));
-        //     }
-        //     catch (const boost::system::system_error &e)
-        //     {
-        //     }
-        // }
-
         void start()
         {
             boost::asio::async_read(m_sock,
@@ -57,7 +33,7 @@ namespace rosasio
                                               std::placeholders::_2));
         }
 
-        void handle_read_header_length(boost::system::error_code ec, std::size_t bytes_read)
+        void handle_read_header_length(boost::system::error_code ec, std::size_t)
         {
             if (ec)
             {
@@ -76,7 +52,7 @@ namespace rosasio
                                               std::placeholders::_2));
         }
 
-        void handle_read_header(boost::system::error_code ec, std::size_t bytes_read)
+        void handle_read_header(boost::system::error_code ec, std::size_t)
         {
             if (ec)
             {
@@ -107,7 +83,7 @@ namespace rosasio
                                               std::placeholders::_2));
         }
 
-        void handle_read_request_len(boost::system::error_code ec, std::size_t bytes_read)
+        void handle_read_request_len(boost::system::error_code ec, std::size_t)
         {
             if (ec)
             {

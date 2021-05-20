@@ -28,6 +28,7 @@ namespace rosasio
         {
             m_signals.async_wait([this](const boost::system::error_code &ec,
                                         int signal_number) {
+                (void)signal_number;
                 if (!ec)
                     m_ioc.stop();
             });
@@ -92,7 +93,6 @@ namespace rosasio
             });
 
             m_xmlrpc_server.register_method("lookupService", [this](auto &params) {
-
                 auto service_name = params.getString(1);
                 auto iter = m_services.find(service_name);
                 if (iter != m_services.end())
@@ -221,7 +221,7 @@ namespace rosasio
         }
 
         template <class MsgType>
-        void unregister_publisher(const std::string &topic_name, unsigned short port)
+        void unregister_publisher(const std::string &topic_name)
         {
             using namespace std;
 
@@ -234,7 +234,6 @@ namespace rosasio
             std::stringstream uri;
             uri << "http://" << m_hostname << ":" << m_xmlrpc_server.get_port();
 
-            auto type = ros::message_traits::DataType<MsgType>::value();
             myClient.call(serverUrl, methodName, "sss", &result, m_name.c_str(), topic_name.c_str(), uri.str().c_str());
 
             xmlrpc_c::value_array arr(result);

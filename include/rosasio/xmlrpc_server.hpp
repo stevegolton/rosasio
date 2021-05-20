@@ -38,7 +38,7 @@ namespace rosasio
 
         void on_read(
             beast::error_code ec,
-            std::size_t bytes_transferred)
+            std::size_t)
         {
             // boost::ignore_unused(bytes_transferred);
 
@@ -89,8 +89,8 @@ namespace rosasio
         }
 
         void on_write(
-            beast::error_code ec,
-            std::size_t bytes_transferred)
+            beast::error_code,
+            std::size_t)
         {
             std::cout << "onwrite\n";
             m_sock.close();
