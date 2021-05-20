@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 	ros::init(argc, argv, "server");
 
 	ros::NodeHandle nh;
-	auto server = nh.advertiseService("service", handler);
+	auto server = nh.advertiseService("service_good", handler);
 
 	ros::spin();
 

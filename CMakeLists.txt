@@ -154,16 +154,30 @@ target_link_libraries(example_publisher
   ${PROJECT_NAME}
 )
 
-# add_executable(example_server src/example_server.cpp)
-# add_dependencies(example_server ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-# target_link_libraries(example_server
-#   ${catkin_LIBRARIES}
-#   ${PROJECT_NAME}
-# )
+add_executable(example_service_client src/example_service_client.cpp)
+add_dependencies(example_service_client ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(example_service_client
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+)
 
 add_executable(example_subscriber src/example_subscriber.cpp)
 add_dependencies(example_subscriber ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(example_subscriber
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+)
+
+add_executable(example_service_server src/example_service_server.cpp)
+add_dependencies(example_service_server ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(example_service_server
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+)
+
+add_executable(example_server src/example_server.cpp)
+add_dependencies(example_server ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(example_server
   ${catkin_LIBRARIES}
   ${PROJECT_NAME}
 )

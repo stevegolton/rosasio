@@ -2,6 +2,7 @@
 
 #include <string>
 #include <boost/asio.hpp>
+#include <ros/service_traits.h>
 
 // TODO remove me eventually
 #include <iostream>
@@ -57,9 +58,44 @@ namespace rosasio
               m_hostname(boost::asio::ip::host_name())
         {
             m_xmlrpc_server.register_method("requestTopic", [this](auto &params) {
-                // TODO search for the actual topic here!
-                auto iter = m_topics.find("/topic");
+                auto topic_name = params.getString(1);
+                auto iter = m_topics.find(topic_name);
                 if (iter != m_topics.end())
+                {
+                    std::vector<xmlrpc_c::value> ep;
+                    ep.push_back(xmlrpc_c::value_string("TCPROS"));
+                    ep.push_back(xmlrpc_c::value_string(m_hostname));
+                    ep.push_back(xmlrpc_c::value_int(iter->second));
+                    xmlrpc_c::value_array ep_xml(ep);
+
+                    std::vector<xmlrpc_c::value> arrayData;
+                    arrayData.push_back(xmlrpc_c::value_int(1));
+                    arrayData.push_back(xmlrpc_c::value_string("OK"));
+                    arrayData.push_back(ep_xml);
+                    xmlrpc_c::value_array array1(arrayData);
+
+                    xmlrpc_c::rpcOutcome outcome(array1);
+
+                    return outcome;
+                }
+                else
+                {
+                    std::vector<xmlrpc_c::value> arrayData;
+                    arrayData.push_back(xmlrpc_c::value_int(1));
+                    arrayData.push_back(xmlrpc_c::value_string("OK"));
+                    xmlrpc_c::value_array array1(arrayData);
+
+                    xmlrpc_c::rpcOutcome outcome(array1);
+
+                    return outcome;
+                }
+            });
+
+            m_xmlrpc_server.register_method("lookupService", [this](auto &params) {
+
+                auto service_name = params.getString(1);
+                auto iter = m_services.find(service_name);
+                if (iter != m_services.end())
                 {
                     std::vector<xmlrpc_c::value> ep;
                     ep.push_back(xmlrpc_c::value_string("TCPROS"));
@@ -280,12 +316,89 @@ namespace rosasio
             m_subscribers.erase(topic_name);
         }
 
+        template <class MsgType>
+        void register_service(const std::string &service_name, unsigned short port)
+        {
+            using namespace std;
+
+            cout << "Registering service on " << service_name << " using port " << port << "\n";
+
+            const std::string serverUrl("http://localhost:11311");
+            const std::string methodName("registerService");
+
+            xmlrpc_c::clientSimple myClient;
+            xmlrpc_c::value result;
+
+            std::stringstream uri;
+            uri << "rosrpc://" << m_hostname << ":" << port;
+
+            std::stringstream http_uri;
+            http_uri << "http://" << m_hostname << ":" << m_xmlrpc_server.get_port();
+
+            // auto type = ros::service_traits::DataType<MsgType>::value();
+            myClient.call(
+                serverUrl, methodName, "ssss", &result,
+                m_name.c_str(),
+                service_name.c_str(),
+                uri.str().c_str(),
+                http_uri.str().c_str());
+
+            xmlrpc_c::value_array arr(result);
+            const vector<xmlrpc_c::value> param1Value(arr.vectorValueValue());
+
+            const int code = xmlrpc_c::value_int(param1Value[0]);
+            const std::string statusMessage = xmlrpc_c::value_string(param1Value[1]);
+
+            std::cout << code << ", " << statusMessage << '\n';
+
+            std::vector<std::string> ret;
+
+            m_services.insert(std::make_pair(service_name, port));
+        }
+
+        template <class MsgType>
+        void unregister_service(const std::string &service_name, unsigned short port)
+        {
+            using namespace std;
+
+            cout << "Unregistering service on " << service_name << " using port " << port << "\n";
+
+            const std::string serverUrl("http://localhost:11311");
+            const std::string methodName("unregisterService");
+
+            xmlrpc_c::clientSimple myClient;
+            xmlrpc_c::value result;
+
+            std::stringstream uri;
+            uri << "rosrpc://" << m_hostname << ":" << port;
+
+            // auto type = ros::service_traits::DataType<MsgType>::value();
+            myClient.call(
+                serverUrl, methodName, "sss", &result,
+                m_name.c_str(),
+                service_name.c_str(),
+                uri.str().c_str());
+
+            xmlrpc_c::value_array arr(result);
+            const vector<xmlrpc_c::value> param1Value(arr.vectorValueValue());
+
+            const int code = xmlrpc_c::value_int(param1Value[0]);
+            const std::string statusMessage = xmlrpc_c::value_string(param1Value[1]);
+
+            std::cout << code << ", " << statusMessage << '\n';
+
+            std::vector<std::string> ret;
+
+            m_services.erase(service_name);
+        }
+
         boost::asio::io_context &m_ioc;
         std::string m_name;
         rosasio::XmlRpcServer m_xmlrpc_server;
         std::string m_hostname;
         std::map<std::string, unsigned short> m_topics;
         std::map<std::string, SubscriberCallback> m_subscribers;
+        std::map<std::string, unsigned short> m_services;
     };
 
 } // namespace rosasio

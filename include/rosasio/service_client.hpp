@@ -6,6 +6,7 @@
 #include <xmlrpc-c/base.hpp>
 #include <xmlrpc-c/client_simple.hpp>
 #include <boost/regex.hpp>
+#include <rosasio/node.hpp>
 
 namespace rosasio
 {
@@ -13,8 +14,8 @@ namespace rosasio
     class ServiceClient
     {
     public:
-        ServiceClient(const std::string &node_name, const std::string &service_name)
-            : m_node_name(node_name),
+        ServiceClient(rosasio::Node &node, const std::string &service_name)
+            : m_node_name(node.get_name()),
               m_service_name(service_name)
         {
             //
@@ -155,6 +156,11 @@ namespace rosasio
             const int code = xmlrpc_c::value_int(param1Value[0]);
             const std::string statusMessage = xmlrpc_c::value_string(param1Value[1]);
             const std::string serviceUrl = xmlrpc_c::value_string(param1Value[2]);
+
+            if (code <= 0)
+            {
+                throw std::runtime_error("No such server found");
+            }
 
             return serviceUrl;
         }
