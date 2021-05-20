@@ -11,23 +11,34 @@
 
 namespace rosasio
 {
+    template <class SubscriberType>
+    class SubscriberPool
+    {
+    public:
+        std::set<std::shared_ptr<SubscriberType>> subscriber_connections;
+    };
+
     template <class MsgType>
     class SubscriberConnection : public std::enable_shared_from_this<SubscriberConnection<MsgType>>
     {
     public:
-        SubscriberConnection(boost::asio::ip::tcp::socket &&sock, std::string node_name, std::string topic_name)
+        SubscriberConnection(boost::asio::ip::tcp::socket &&sock, std::string node_name, SubscriberPool<SubscriberConnection<MsgType>> &pool)
             : m_sock(std::move(sock)),
-              initialized(false),
               m_node_name(node_name),
-              m_topic_name(topic_name)
+              m_pool(pool)
         {
+        }
+
+        void start()
+        {
+            using namespace std::placeholders;
+            boost::asio::async_read(m_sock,
+                                    boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
+                                    std::bind(&SubscriberConnection::handle_read_len, this->shared_from_this(), _1, _2));
         }
 
         void publish(const MsgType &msg)
         {
-            if (!initialized)
-                return;
-
             namespace ser = ros::serialization;
 
             uint32_t serial_size = ros::serialization::serializationLength(msg);
@@ -47,43 +58,67 @@ namespace rosasio
             }
         }
 
-        void start()
+        boost::asio::ip::tcp::socket m_sock;
+
+    private:
+        void handle_read_len(boost::system::error_code ec, std::size_t)
         {
+            using namespace std::placeholders;
+
+            if (ec)
+                return;
+
+            m_buffer.reserve(m_msglen);
+
             boost::asio::async_read(m_sock,
-                                    boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
-                                    std::bind(&SubscriberConnection::handle_read, this,
-                                              std::placeholders::_1,
-                                              std::placeholders::_2));
+                                    boost::asio::buffer(m_buffer),
+                                    std::bind(&SubscriberConnection::handle_read, this->shared_from_this(), _1, _2));
         }
 
-        void handle_read(boost::system::error_code ec, std::size_t bytes_read)
+        void handle_read(boost::system::error_code ec, std::size_t)
         {
             if (ec)
-            {
-                std::cout << "Oh dear\n";
-            }
+                return;
 
-            std::cout << "Got a message from subscriber: " << bytes_read << "\n";
+            using namespace std::placeholders;
+
+            boost::asio::async_read(m_sock,
+                                    boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
+                                    std::bind(&SubscriberConnection::handle_close, this->shared_from_this(), _1, _2));
 
             Message msg;
             msg.add_field("message_definition=string-data\n\n");
             msg.add_field("callerid", m_node_name);
-            // msg.add_field("topic", m_topic_name);
             msg.add_field("md5sum", ros::message_traits::MD5Sum<MsgType>::value());
             msg.add_field("type", ros::message_traits::DataType<MsgType>::value());
             msg.finish();
+
             boost::asio::write(m_sock, boost::asio::buffer(msg.buf));
-            initialized = true;
+            std::cout << "Adding subscriber connection\n";
+            m_pool.subscriber_connections.insert(this->shared_from_this());
         }
 
-        boost::asio::ip::tcp::socket m_sock;
+        void handle_close(boost::system::error_code ec, std::size_t)
+        {
+            using namespace std::placeholders;
 
-    private:
+            if (ec == boost::asio::error::eof)
+            {
+                m_pool.subscriber_connections.erase(this->shared_from_this());
+                std::cout << "Connection closed, erasing subscriber connection\n";
+            }
+            else
+            {
+                boost::asio::async_read(m_sock,
+                                    boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
+                                    std::bind(&SubscriberConnection::handle_close, this->shared_from_this(), _1, _2));
+            }
+        }
+
         uint32_t m_msglen;
         std::vector<uint8_t> m_buffer;
-        bool initialized;
         std::string m_node_name;
-        std::string m_topic_name;
+        SubscriberPool<SubscriberConnection<MsgType>> &m_pool;
     };
 
     template <class MsgType>
@@ -107,8 +142,7 @@ namespace rosasio
 
         void publish(const MsgType &msg)
         {
-            std::cout << "Publishing message to " << m_subscriber_connections.size() << " subscribers\n";
-            for (auto conn : m_subscriber_connections)
+            for (auto conn : m_pool.subscriber_connections)
             {
                 conn->publish(msg);
             }
@@ -120,7 +154,7 @@ namespace rosasio
             boost::asio::ip::tcp::socket sock(m_acceptor.get_executor());
 
             // TODO we don't really need to move here - just create the socket as part of the connection object amd pass in ref to ioc
-            auto conn = std::make_shared<SubscriberConnection<MsgType>>(std::move(sock), m_node.get_name(), m_topic_name);
+            auto conn = std::make_shared<SubscriberConnection<MsgType>>(std::move(sock), m_node.get_name(), m_pool);
 
             m_acceptor.async_accept(conn->m_sock,
                                     std::bind(
@@ -135,44 +169,15 @@ namespace rosasio
             {
                 std::cout << "Accepted connection\n";
                 conn->start();
-                m_subscriber_connections.push_back(conn);
             }
 
             start_accept();
         }
 
-        // std::pair<std::string, int> request_topic(const std::string &topic_name, const std::string &uri)
-        // {
-        //     using namespace std;
-
-        //     const std::string methodName("requestTopic");
-
-        //     xmlrpc_c::clientSimple myClient;
-        //     xmlrpc_c::value result;
-
-        //     auto type = ros::message_traits::DataType<MsgType>::value();
-        //     myClient.call(uri, methodName, "ss((s))", &result, m_node_name.c_str(), topic_name.c_str(), "TCPROS");
-
-        //     xmlrpc_c::value_array arr(result);
-        //     const vector<xmlrpc_c::value> param1Value(arr.vectorValueValue());
-
-        //     const int code = xmlrpc_c::value_int(param1Value[0]);
-        //     const std::string statusMessage = xmlrpc_c::value_string(param1Value[1]);
-        //     const vector<xmlrpc_c::value> uri_details(xmlrpc_c::value_array(param1Value[2]).vectorValueValue());
-
-        //     std::cout << code << " : " << statusMessage << '\n';
-
-        //     std::pair<std::string, int> ret;
-        //     ret.first = xmlrpc_c::value_string(uri_details[1]);
-        //     ret.second = xmlrpc_c::value_int(uri_details[2]);
-
-        //     return ret;
-        // }
-
         rosasio::Node &m_node;
         std::string m_topic_name;
         boost::asio::ip::tcp::acceptor m_acceptor;
         std::function<void(const MsgType &)> m_cb;
-        std::list<std::shared_ptr<SubscriberConnection<MsgType>>> m_subscriber_connections;
+        SubscriberPool<SubscriberConnection<MsgType>> m_pool;
     };
 } // namespace rosasio
