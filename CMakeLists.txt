@@ -10,7 +10,7 @@ project(rosasio)
 find_package(catkin REQUIRED roscpp std_srvs)
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system)
 find_package(XMLRPC REQUIRED c++2 client)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -99,10 +99,10 @@ find_package(XMLRPC REQUIRED c++2 client)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES rosasio
+ INCLUDE_DIRS include
+ LIBRARIES rosasio
 #  CATKIN_DEPENDS other_catkin_pkg
-#  DEPENDS system_lib
+ DEPENDS boost
 )
 
 ###########
@@ -204,11 +204,11 @@ target_link_libraries(example_server
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
-# install(TARGETS ${PROJECT_NAME}
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-# )
+install(TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
