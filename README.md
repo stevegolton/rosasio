@@ -20,4 +20,4 @@
   - Allows multiple nodes in the same process & event loop
 
 ## Examples
-See the /examples folder for example clients.
+See the /src folder for example clients.
