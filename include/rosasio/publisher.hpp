@@ -22,10 +22,12 @@ namespace rosasio
     class SubscriberConnection : public std::enable_shared_from_this<SubscriberConnection<MsgType>>
     {
     public:
-        SubscriberConnection(boost::asio::ip::tcp::socket &&sock, std::string node_name, SubscriberPool<SubscriberConnection<MsgType>> &pool)
+        SubscriberConnection(boost::asio::ip::tcp::socket &&sock, std::string node_name, SubscriberPool<SubscriberConnection<MsgType>> &pool, bool latched, MsgType &latched_msg)
             : m_sock(std::move(sock)),
               m_node_name(node_name),
-              m_pool(pool)
+              m_pool(pool),
+              m_latched(latched),
+              m_latched_msg(latched_msg)
         {
         }
 
@@ -49,7 +51,6 @@ namespace rosasio
 
             try
             {
-
                 boost::asio::write(m_sock, boost::asio::buffer(&serial_size, sizeof(serial_size)));
                 boost::asio::write(m_sock, boost::asio::buffer(buffer.get(), serial_size));
             }
@@ -96,6 +97,11 @@ namespace rosasio
             boost::asio::write(m_sock, boost::asio::buffer(msg.buf));
             std::cout << "Adding subscriber connection\n";
             m_pool.subscriber_connections.insert(this->shared_from_this());
+            
+            if (m_latched)
+            {
+                publish(m_latched_msg);
+            }
         }
 
         void handle_close(boost::system::error_code ec, std::size_t)
@@ -110,8 +116,8 @@ namespace rosasio
             else
             {
                 boost::asio::async_read(m_sock,
-                                    boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
-                                    std::bind(&SubscriberConnection::handle_close, this->shared_from_this(), _1, _2));
+                                        boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
+                                        std::bind(&SubscriberConnection::handle_close, this->shared_from_this(), _1, _2));
             }
         }
 
@@ -119,16 +125,19 @@ namespace rosasio
         std::vector<uint8_t> m_buffer;
         std::string m_node_name;
         SubscriberPool<SubscriberConnection<MsgType>> &m_pool;
+        bool m_latched;
+        MsgType &m_latched_msg;
     };
 
     template <class MsgType>
     class Publisher
     {
     public:
-        Publisher(rosasio::Node &node, const std::string &topic_name)
+        Publisher(rosasio::Node &node, const std::string &topic_name, bool latched = false)
             : m_node(node),
               m_topic_name(topic_name),
-              m_acceptor(m_node.get_ioc(), boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0))
+              m_acceptor(m_node.get_ioc(), boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0)),
+              m_latched(latched)
         {
             boost::asio::ip::tcp::endpoint le = m_acceptor.local_endpoint();
             m_node.register_publisher<MsgType>(topic_name, le.port());
@@ -146,6 +155,11 @@ namespace rosasio
             {
                 conn->publish(msg);
             }
+
+            if (m_latched)
+            {
+                m_latched_msg = msg;
+            }
         }
 
     private:
@@ -154,7 +168,7 @@ namespace rosasio
             boost::asio::ip::tcp::socket sock(m_node.get_ioc());
 
             // TODO we don't really need to move here - just create the socket as part of the connection object amd pass in ref to ioc
-            auto conn = std::make_shared<SubscriberConnection<MsgType>>(std::move(sock), m_node.get_name(), m_pool);
+            auto conn = std::make_shared<SubscriberConnection<MsgType>>(std::move(sock), m_node.get_name(), m_pool, m_latched, m_latched_msg);
 
             m_acceptor.async_accept(conn->m_sock,
                                     std::bind(
@@ -179,5 +193,7 @@ namespace rosasio
         boost::asio::ip::tcp::acceptor m_acceptor;
         std::function<void(const MsgType &)> m_cb;
         SubscriberPool<SubscriberConnection<MsgType>> m_pool;
+        bool m_latched;
+        MsgType m_latched_msg;
     };
 } // namespace rosasio
