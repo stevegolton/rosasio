@@ -30,15 +30,15 @@ namespace rosasio
         void start()
         {
             // Read a request
-            http::async_read(m_sock, m_buffer, m_req,
-                             beast::bind_front_handler(
-                                 &Connection::on_read,
-                                 shared_from_this()));
+            http::async_read(
+                m_sock, m_buffer, m_req,
+                std::bind(
+                    &Connection::on_read,
+                    shared_from_this(),
+                    std::placeholders::_1));
         }
 
-        void on_read(
-            beast::error_code ec,
-            std::size_t)
+        void on_read(beast::error_code ec)
         {
             // boost::ignore_unused(bytes_transferred);
 
@@ -74,10 +74,12 @@ namespace rosasio
 
                 beast::ostream(m_resp.body()) << responseXml;
 
-                http::async_write(m_sock, m_resp,
-                                  beast::bind_front_handler(
-                                      &Connection::on_write,
-                                      shared_from_this()));
+                http::async_write(
+                    m_sock, m_resp,
+                    std::bind(
+                        &Connection::on_write,
+                        shared_from_this(),
+                        std::placeholders::_1));
             }
             else
             {
@@ -88,9 +90,7 @@ namespace rosasio
             // handle_request(*doc_root_, std::move(req_), lambda_);
         }
 
-        void on_write(
-            beast::error_code,
-            std::size_t)
+        void on_write(beast::error_code)
         {
             std::cout << "onwrite\n";
             m_sock.close();

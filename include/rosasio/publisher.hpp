@@ -151,7 +151,7 @@ namespace rosasio
     private:
         void start_accept()
         {
-            boost::asio::ip::tcp::socket sock(m_acceptor.get_executor());
+            boost::asio::ip::tcp::socket sock(m_node.get_ioc());
 
             // TODO we don't really need to move here - just create the socket as part of the connection object amd pass in ref to ioc
             auto conn = std::make_shared<SubscriberConnection<MsgType>>(std::move(sock), m_node.get_name(), m_pool);
