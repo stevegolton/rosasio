@@ -92,6 +92,7 @@ namespace rosasio
             msg.add_field("callerid", m_node_name);
             msg.add_field("md5sum", ros::message_traits::MD5Sum<MsgType>::value());
             msg.add_field("type", ros::message_traits::DataType<MsgType>::value());
+            msg.add_field("latching", m_latched ? "1" : "0");
             msg.finish();
 
             boost::asio::write(m_sock, boost::asio::buffer(msg.buf));
@@ -149,7 +150,7 @@ namespace rosasio
             m_node.unregister_publisher<MsgType>(m_topic_name);
         }
 
-        void publish(const MsgType &msg)
+        virtual void publish(const MsgType &msg)
         {
             for (auto conn : m_pool.subscriber_connections)
             {
