@@ -58,32 +58,49 @@ namespace rosasio
               m_xmlrpc_server(m_ioc),
               m_hostname(boost::asio::ip::host_name())
         {
+            std::cout << "http://" << m_hostname << ":" << m_xmlrpc_server.get_port() << "\n";
+
             m_xmlrpc_server.register_method("requestTopic", [this](auto &params) {
-                auto topic_name = params.getString(1);
-                auto iter = m_topics.find(topic_name);
-                if (iter != m_topics.end())
+
+                try
                 {
-                    std::vector<xmlrpc_c::value> ep;
-                    ep.push_back(xmlrpc_c::value_string("TCPROS"));
-                    ep.push_back(xmlrpc_c::value_string(m_hostname));
-                    ep.push_back(xmlrpc_c::value_int(iter->second));
-                    xmlrpc_c::value_array ep_xml(ep);
+                    auto topic_name = params.getString(1);
+                    auto iter = m_topics.find(topic_name);
+                    if (iter != m_topics.end())
+                    {
+                        std::vector<xmlrpc_c::value> ep;
+                        ep.push_back(xmlrpc_c::value_string("TCPROS"));
+                        ep.push_back(xmlrpc_c::value_string(m_hostname));
+                        ep.push_back(xmlrpc_c::value_int(iter->second));
+                        xmlrpc_c::value_array ep_xml(ep);
 
-                    std::vector<xmlrpc_c::value> arrayData;
-                    arrayData.push_back(xmlrpc_c::value_int(1));
-                    arrayData.push_back(xmlrpc_c::value_string("OK"));
-                    arrayData.push_back(ep_xml);
-                    xmlrpc_c::value_array array1(arrayData);
+                        std::vector<xmlrpc_c::value> arrayData;
+                        arrayData.push_back(xmlrpc_c::value_int(1));
+                        arrayData.push_back(xmlrpc_c::value_string("OK"));
+                        arrayData.push_back(ep_xml);
+                        xmlrpc_c::value_array array1(arrayData);
 
-                    xmlrpc_c::rpcOutcome outcome(array1);
+                        xmlrpc_c::rpcOutcome outcome(array1);
 
-                    return outcome;
+                        return outcome;
+                    }
+                    else
+                    {
+                        std::vector<xmlrpc_c::value> arrayData;
+                        arrayData.push_back(xmlrpc_c::value_int(1));
+                        arrayData.push_back(xmlrpc_c::value_string("OK"));
+                        xmlrpc_c::value_array array1(arrayData);
+
+                        xmlrpc_c::rpcOutcome outcome(array1);
+
+                        return outcome;
+                    }
                 }
-                else
+                catch (const xmlrpc_c::fault &e)
                 {
                     std::vector<xmlrpc_c::value> arrayData;
                     arrayData.push_back(xmlrpc_c::value_int(1));
-                    arrayData.push_back(xmlrpc_c::value_string("OK"));
+                    arrayData.push_back(xmlrpc_c::value_string("OOPS!"));
                     xmlrpc_c::value_array array1(arrayData);
 
                     xmlrpc_c::rpcOutcome outcome(array1);
