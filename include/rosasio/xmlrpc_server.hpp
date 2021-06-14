@@ -72,6 +72,9 @@ namespace rosasio
                 xmlrpc_c::xml::generateResponse(outcome, &responseXml);
                 std::cout << "The XML is: " << responseXml << std::endl;
 
+                m_resp.set(http::field::content_type, "text/xml");
+                m_resp.set(http::field::content_length, std::to_string(responseXml.size()));
+
                 beast::ostream(m_resp.body()) << responseXml;
 
                 http::async_write(
