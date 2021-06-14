@@ -44,9 +44,9 @@ namespace rosasio
         }
 
         std::set<std::shared_ptr<SubscriberType>> subscriber_connections;
-        bool open;
         bool m_latched;
         bool m_has_latched_msg;
+        bool open;
         MsgType m_latched_msg;
     };
 
