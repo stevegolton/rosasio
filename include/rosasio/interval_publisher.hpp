@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include "publisher.hpp"
+#include <rosasio/timer.hpp>
 
 namespace rosasio
 {
