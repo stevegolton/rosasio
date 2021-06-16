@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <boost/asio.hpp>
 #include <ros/service_traits.h>
 #include <ros/serialization.h>
@@ -37,11 +38,8 @@ namespace rosasio
         {
             if (ec)
             {
-                std::cout << "Read error\n";
                 return;
             }
-
-            std::cout << "Received header length: " << m_msglen << "\n";
 
             m_buffer.resize(m_msglen);
 
@@ -56,98 +54,116 @@ namespace rosasio
         {
             if (ec)
             {
-                std::cout << "Read error\n";
                 return;
             }
 
-            std::cout << "Received header\n";
-
-            // TODO write async
-            Message msg;
-            // msg.add_field("message_definition=string-data\n\n");
-
             const std::string type = ros::service_traits::DataType<MsgType>::value();
-            
+
+            Message msg;
             msg.add_field("callerid", m_node_name);
             msg.add_field("md5sum", ros::service_traits::MD5Sum<MsgType>::value());
             msg.add_field("request_type", type + "Request");
             msg.add_field("response_type", type + "Response");
             msg.add_field("type", type);
             msg.finish();
-            boost::asio::write(m_sock, boost::asio::buffer(msg.buf));
+            m_header = msg.buf;
+
+            boost::asio::async_write(m_sock,
+                                     boost::asio::buffer(m_header),
+                                     std::bind(&ClientConnection::handle_write_header,
+                                               this->shared_from_this(),
+                                               std::placeholders::_1));
+        }
+
+        void handle_write_header(boost::system::error_code ec)
+        {
+            if (ec)
+            {
+                return;
+            }
 
             boost::asio::async_read(m_sock,
                                     boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
                                     std::bind(&ClientConnection::handle_read_request_len, this->shared_from_this(),
-                                              std::placeholders::_1,
-                                              std::placeholders::_2));
+                                              std::placeholders::_1));
         }
 
-        void handle_read_request_len(boost::system::error_code ec, std::size_t)
+        void handle_read_request_len(boost::system::error_code ec)
         {
             if (ec)
             {
-                std::cout << "Read error\n";
                 return;
             }
 
-            std::cout << "Received request length: " << m_msglen << "\n";
-
             if (0 == m_msglen)
             {
-                namespace ser = ros::serialization;
-
-                typename MsgType::Request req;
-                ser::IStream stream(m_buffer.data(), m_msglen);
-                ser::deserialize(stream, req);
-
-                typename MsgType::Response resp;
-                auto success = m_cb(req, resp);
-
-                {
-                    uint32_t serial_size = ros::serialization::serializationLength(resp);
-                    boost::shared_array<uint8_t> buffer(new uint8_t[serial_size]);
-
-                    ser::OStream stream(buffer.get(), serial_size);
-                    ser::serialize(stream, resp);
-
-                    char res = success? 0x01 : 0x00;
-                    boost::asio::write(m_sock, boost::asio::buffer(&res, sizeof(res)));
-                    boost::asio::write(m_sock, boost::asio::buffer(&serial_size, sizeof(serial_size)));
-                    boost::asio::write(m_sock, boost::asio::buffer(buffer.get(), serial_size));
-                }
+                do_call();
             }
             else
             {
-                // TODO read the actual request properly!
+                m_buffer.resize(m_msglen);
+
+                boost::asio::async_read(m_sock,
+                                        boost::asio::buffer(m_buffer),
+                                        std::bind(&ClientConnection::handle_read_request, this->shared_from_this(),
+                                                  std::placeholders::_1));
             }
         }
 
-        // oid on_message_length_received(boost::system::error_code ec, std::size_t len)
-        // {
-        //     buf.resize(msglen);
-        //     boost::asio::async_read(m_sock,
-        //                             boost::asio::buffer(buf),
-        //                             std::bind(&PublisherConnection::on_message_received, this->shared_from_this(),
-        //                                       std::placeholders::_1,
-        //                                       std::placeholders::_2));
-        // }
+        void do_call()
+        {
+            namespace ser = ros::serialization;
 
-        // void on_message_received(boost::system::error_code ec, std::size_t len)
-        // {
-        //     buf.resize(msglen);
-        //     boost::asio::async_read(m_sock,
-        //                             boost::asio::buffer(&msglen, sizeof(msglen)),
-        //                             std::bind(&PublisherConnection::on_message_length_received, this->shared_from_this(),
-        //                                       std::placeholders::_1,
-        //                                       std::placeholders::_2));
+            typename MsgType::Request req;
+            ser::IStream stream(m_buffer.data(), m_msglen);
+            ser::deserialize(stream, req);
 
-        //     namespace ser = ros::serialization;
-        //     MsgType msg;
-        //     ser::IStream stream(buf.data(), msglen);
-        //     ser::deserialize(stream, msg);
-        //     m_cb(msg);
-        // }
+            typename MsgType::Response resp;
+            auto success = m_cb(req, resp);
+
+            {
+                serial_size = ros::serialization::serializationLength(resp);
+                m_write_buffer.reset(new uint8_t[serial_size]);
+
+                ser::OStream stream(m_write_buffer.get(), serial_size);
+                ser::serialize(stream, resp);
+
+                res = success ? 0x01 : 0x00;
+                std::vector<boost::asio::const_buffer> gather;
+                gather.push_back(boost::asio::buffer(&res, sizeof(res)));
+                gather.push_back(boost::asio::buffer(&serial_size, sizeof(serial_size)));
+                gather.push_back(boost::asio::buffer(m_write_buffer.get(), serial_size));
+                boost::asio::async_write(m_sock,
+                                         gather,
+                                         std::bind(&ClientConnection::handle_write,
+                                                   this->shared_from_this(),
+                                                   std::placeholders::_1));
+            }
+        }
+
+        void handle_read_request(boost::system::error_code ec)
+        {
+            if (ec)
+            {
+                return;
+            }
+
+            do_call();
+        }
+
+        void handle_write(boost::system::error_code ec)
+        {
+            if (ec)
+            {
+                return;
+            }
+
+            boost::asio::async_read(m_sock,
+                                    boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
+                                    std::bind(&ClientConnection::handle_read_request_len,
+                                              this->shared_from_this(),
+                                              std::placeholders::_1));
+        }
 
         boost::asio::ip::tcp::socket m_sock;
 
@@ -157,6 +173,11 @@ namespace rosasio
         std::string m_node_name;
         std::string m_topic_name;
         CbType m_cb;
+
+        boost::shared_array<uint8_t> m_write_buffer;
+        uint32_t serial_size;
+        char res;
+        std::vector<uint8_t> m_header;
     };
 
     template <class MsgType>
@@ -202,7 +223,6 @@ namespace rosasio
         {
             if (!error)
             {
-                std::cout << "Accepted connection\n";
                 conn->start();
             }
 
