@@ -169,6 +169,32 @@ namespace rosasio
                 xmlrpc_c::value_array array1(arrayData);
                 return xmlrpc_c::rpcOutcome(array1);
             });
+
+            m_xmlrpc_server.register_method("getPid", [this](auto &) {
+
+                std::vector<xmlrpc_c::value> arrayData;
+                arrayData.push_back(xmlrpc_c::value_int(1));
+                arrayData.push_back(xmlrpc_c::value_string("OK"));
+                arrayData.push_back(xmlrpc_c::value_int(getpid()));
+                xmlrpc_c::value_array array1(arrayData);
+
+                xmlrpc_c::rpcOutcome outcome(array1);
+
+                return outcome;
+            });
+
+            m_xmlrpc_server.register_method("shutdown", [this](auto &) {
+
+                std::vector<xmlrpc_c::value> arrayData;
+                arrayData.push_back(xmlrpc_c::value_int(1));
+                arrayData.push_back(xmlrpc_c::value_string("OK"));
+                xmlrpc_c::value_array array1(arrayData);
+                xmlrpc_c::rpcOutcome outcome(array1);
+
+                m_ioc.stop();
+
+                return outcome;
+            });
         }
 
         boost::asio::io_context &get_ioc() const
