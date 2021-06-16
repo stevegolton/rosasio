@@ -76,8 +76,6 @@ namespace rosasio
                     uint32_t msglen;
                     size_t len = boost::asio::read(socket, boost::asio::buffer(&msglen, sizeof(msglen)), error);
 
-                    std::cout << "Reading: " << msglen << " bytes\n";
-
                     // if (error == boost::asio::error::eof)
                     //     break; // Connection closed cleanly by peer.
                     // else if (error)
@@ -85,8 +83,6 @@ namespace rosasio
 
                     uint8_t buf[msglen];
                     len = boost::asio::read(socket, boost::asio::buffer(buf, sizeof(buf)), error);
-
-                    std::cout << "Read: " << msglen << " bytes\n";
 
                     // if (error == boost::asio::error::eof)
                     //     break; // Connection closed cleanly by peer.
@@ -110,11 +106,9 @@ namespace rosasio
 
                     uint8_t stat;
                     size_t len = boost::asio::read(socket, boost::asio::buffer(&stat, sizeof(stat)), error);
-                    std::cout << "Stat: " << stat << "\n";
 
                     uint32_t msglen;
                     len = boost::asio::read(socket, boost::asio::buffer(&msglen, sizeof(msglen)), error);
-                    std::cout << "Reading: " << msglen << " bytes\n";
 
                     uint8_t buf[msglen];
                     len = boost::asio::read(socket, boost::asio::buffer(buf, sizeof(buf)), error);
@@ -123,8 +117,6 @@ namespace rosasio
                     //     break; // Connection closed cleanly by peer.
                     // else if (error)
                     //     throw boost::system::system_error(error); // Some other error.
-
-                    std::cout << "Read: " << msglen << " bytes\n";
 
                     // if (error == boost::asio::error::eof)
                     //     break; // Connection closed cleanly by peer.
