@@ -63,6 +63,9 @@ namespace rosasio
 
         void start()
         {
+            boost::asio::ip::tcp::no_delay option(true);
+            m_sock.set_option(option);
+
             using namespace std::placeholders;
             boost::asio::async_read(m_sock,
                                     boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
@@ -91,7 +94,6 @@ namespace rosasio
 
         void close()
         {
-            std::cout << "Closing socket!\n";
             m_sock.close();
         }
 
@@ -221,7 +223,6 @@ namespace rosasio
         {
             if (!error)
             {
-                std::cout << "Accepted connection\n";
                 conn->start();
             }
 
