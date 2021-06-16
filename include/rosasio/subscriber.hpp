@@ -38,6 +38,7 @@ namespace rosasio
             msg.finish();
             boost::asio::write(m_sock, boost::asio::buffer(msg.buf));
 
+            // TODO do this async
             {
                 // TODO handle errors here
                 boost::system::error_code error;
@@ -56,7 +57,7 @@ namespace rosasio
                 //     break; // Connection closed cleanly by peer.
                 // else if (error)
                 //     throw boost::system::system_error(error); // Some other error.
-            } // namespace ros::serialization;
+            }
 
             boost::asio::async_read(m_sock,
                                     boost::asio::buffer(&msglen, sizeof(msglen)),
@@ -75,6 +76,12 @@ namespace rosasio
 
         void on_message_length_received(boost::system::error_code ec, std::size_t len)
         {
+            if (ec)
+            {
+                std::cout << "Publisher connection terminated\n";
+                return;
+            }
+
             buf.resize(msglen);
             boost::asio::async_read(m_sock,
                                     boost::asio::buffer(buf),
@@ -85,7 +92,12 @@ namespace rosasio
 
         void on_message_received(boost::system::error_code ec, std::size_t len)
         {
-            buf.resize(msglen);
+            if (ec)
+            {
+                std::cout << "Publisher connection terminated\n";
+                return;
+            }
+            
             boost::asio::async_read(m_sock,
                                     boost::asio::buffer(&msglen, sizeof(msglen)),
                                     std::bind(&PublisherConnection::on_message_length_received, this->shared_from_this(),
@@ -122,33 +134,13 @@ namespace rosasio
 
             for (auto &publisher_xmlrpc_uri : publisher_xmlrpc_uris)
             {
-                auto tcpros_uri = request_topic(m_topic_name, publisher_xmlrpc_uri);
-
-                using boost::asio::ip::tcp;
-
-                tcp::resolver resolver(m_ioc);
-                tcp::resolver::query query(tcpros_uri.first, std::to_string(tcpros_uri.second));
-                tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-                tcp::resolver::iterator end;
-
-                tcp::socket socket(m_ioc);
-                boost::system::error_code error = boost::asio::error::host_not_found;
-                while (error && endpoint_iterator != end)
+                try
                 {
-                    socket.close();
-                    socket.connect(*endpoint_iterator++, error);
-
-                    auto conn = std::make_shared<PublisherConnection<MsgType>>(
-                        std::move(socket),
-                        m_topic_name,
-                        m_node.get_name(),
-                        m_cb);
-
-                    conn->start();
-
-                    m_publisher_connections.emplace(
-                        publisher_xmlrpc_uri,
-                        conn);
+                    create_publisher_connection(publisher_xmlrpc_uri);
+                }
+                catch (const std::exception &e)
+                {
+                    std::cerr << "Error connecting to publisher's XMLRPC server: " << e.what() << '\n';
                 }
             }
         }
@@ -167,34 +159,7 @@ namespace rosasio
                 auto iter = m_publisher_connections.find(publisher_xmlrpc_uri);
                 if (iter == m_publisher_connections.end())
                 {
-                    auto tcpros_uri = request_topic(m_topic_name, publisher_xmlrpc_uri);
-
-                    using boost::asio::ip::tcp;
-
-                    tcp::resolver resolver(m_ioc);
-                    tcp::resolver::query query(tcpros_uri.first, std::to_string(tcpros_uri.second));
-                    tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-                    tcp::resolver::iterator end;
-
-                    tcp::socket socket(m_ioc);
-                    boost::system::error_code error = boost::asio::error::host_not_found;
-                    while (error && endpoint_iterator != end)
-                    {
-                        socket.close();
-                        socket.connect(*endpoint_iterator++, error);
-
-                        auto conn = std::make_shared<PublisherConnection<MsgType>>(
-                            std::move(socket),
-                            m_topic_name,
-                            m_node.get_name(),
-                            m_cb);
-
-                        conn->start();
-
-                        m_publisher_connections.emplace(
-                            publisher_xmlrpc_uri,
-                            conn);
-                    }
+                    create_publisher_connection(publisher_xmlrpc_uri);
                 }
             }
         }
@@ -225,6 +190,45 @@ namespace rosasio
             ret.second = xmlrpc_c::value_int(uri_details[2]);
 
             return ret;
+        }
+
+        void create_publisher_connection(const std::string &publisher_xmlrpc_uri)
+        {
+            try
+            {
+                auto tcpros_uri = request_topic(m_topic_name, publisher_xmlrpc_uri);
+
+                using boost::asio::ip::tcp;
+
+                tcp::resolver resolver(m_ioc);
+                tcp::resolver::query query(tcpros_uri.first, std::to_string(tcpros_uri.second));
+                tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+                tcp::resolver::iterator end;
+
+                tcp::socket socket(m_ioc);
+                boost::system::error_code error = boost::asio::error::host_not_found;
+                while (error && endpoint_iterator != end)
+                {
+                    socket.close();
+                    socket.connect(*endpoint_iterator++, error);
+
+                    auto conn = std::make_shared<PublisherConnection<MsgType>>(
+                        std::move(socket),
+                        m_topic_name,
+                        m_node.get_name(),
+                        m_cb);
+
+                    conn->start();
+
+                    m_publisher_connections.emplace(
+                        publisher_xmlrpc_uri,
+                        conn);
+                }
+            }
+            catch (const std::exception &e)
+            {
+                std::cerr << "Error connecting to publisher's XMLRPC server: " << e.what() << '\n';
+            }
         }
 
         rosasio::Node &m_node;
