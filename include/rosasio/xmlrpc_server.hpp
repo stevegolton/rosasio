@@ -49,53 +49,63 @@ namespace rosasio
             if (ec)
                 return;
 
-            std::string s(m_req.body().data());
-
-            std::cout << s << '\n';
-
-            using namespace std;
-
-            string methodName;
-            xmlrpc_c::paramList paramListP;
-
-            xmlrpc_c::xml::parseCall(s, &methodName, &paramListP);
-
-            cout << "It is a call of method " << methodName
-                 << " with " << paramListP.size() << " parameters"
-                 << endl;
-
-            auto iter = m_callbacks.find(methodName);
-            if (iter != m_callbacks.end())
+            try
             {
-                auto outcome = iter->second(paramListP);
-                std::string responseXml;
-                xmlrpc_c::xml::generateResponse(outcome, &responseXml);
-                std::cout << "The XML is: " << responseXml << std::endl;
+                std::string s(m_req.body().data());
 
-                m_resp.set(http::field::content_type, "text/xml");
-                m_resp.set(http::field::content_length, std::to_string(responseXml.size()));
+                std::cout << s << '\n';
 
-                beast::ostream(m_resp.body()) << responseXml;
+                using namespace std;
 
-                http::async_write(
-                    m_sock, m_resp,
-                    std::bind(
-                        &Connection::on_write,
-                        shared_from_this(),
-                        std::placeholders::_1));
+                string methodName;
+                xmlrpc_c::paramList paramListP;
+
+                xmlrpc_c::xml::parseCall(s, &methodName, &paramListP);
+
+                cout << "Received a call of method " << methodName
+                    << " with " << paramListP.size() << " parameters"
+                    << endl;
+
+                auto iter = m_callbacks.find(methodName);
+                if (iter != m_callbacks.end())
+                {
+                    auto outcome = iter->second(paramListP);
+                    std::string responseXml;
+                    xmlrpc_c::xml::generateResponse(outcome, &responseXml);
+                    std::cout << "The XML is: " << responseXml << std::endl;
+
+                    m_resp.set(http::field::content_type, "text/xml");
+                    m_resp.set(http::field::content_length, std::to_string(responseXml.size()));
+
+                    beast::ostream(m_resp.body()) << responseXml;
+
+                    http::async_write(
+                        m_sock, m_resp,
+                        std::bind(
+                            &Connection::on_write,
+                            shared_from_this(),
+                            std::placeholders::_1));
+                }
+                else
+                {
+                    std::cerr << "No callbacks registered for method with name " << methodName << '\n';
+                    
+                    // TODO return response rather than just binning out
+                    m_sock.close();
+                }
             }
-            else
+            catch(const std::exception &e)
             {
-                std::cerr << "No callbacks registered for method with name " << methodName << '\n';
+                std::cerr << "Error processing XMLRPC request: " << e.what() << '\n';
+                
+                // TODO return response rather than just binning out
+                m_sock.close();
             }
-
-            // Send the response
-            // handle_request(*doc_root_, std::move(req_), lambda_);
         }
 
         void on_write(beast::error_code)
         {
-            std::cout << "onwrite\n";
+            // We are now finished with the request so just close the socket
             m_sock.close();
         }
 
