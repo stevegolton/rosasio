@@ -58,7 +58,7 @@ namespace rosasio
               m_xmlrpc_server(m_ioc),
               m_hostname(boost::asio::ip::host_name())
         {
-            std::cout << "http://" << m_hostname << ":" << m_xmlrpc_server.get_port() << "\n";
+            std::cout << "Started XMLRPC server at: http://" << m_hostname << ":" << m_xmlrpc_server.get_port() << "\n";
 
             m_xmlrpc_server.register_method("requestTopic", [this](auto &params) {
 
