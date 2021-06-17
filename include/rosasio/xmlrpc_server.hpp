@@ -53,7 +53,7 @@ namespace rosasio
             {
                 std::string s(m_req.body().data());
 
-                std::cout << s << '\n';
+                // std::cout << s << '\n';
 
                 using namespace std;
 
@@ -62,9 +62,9 @@ namespace rosasio
 
                 xmlrpc_c::xml::parseCall(s, &methodName, &paramListP);
 
-                cout << "Received a call of method " << methodName
-                    << " with " << paramListP.size() << " parameters"
-                    << endl;
+                // cout << "Received a call of method " << methodName
+                //     << " with " << paramListP.size() << " parameters"
+                //     << endl;
 
                 auto iter = m_callbacks.find(methodName);
                 if (iter != m_callbacks.end())
@@ -72,7 +72,7 @@ namespace rosasio
                     auto outcome = iter->second(paramListP);
                     std::string responseXml;
                     xmlrpc_c::xml::generateResponse(outcome, &responseXml);
-                    std::cout << "The XML is: " << responseXml << std::endl;
+                    // std::cout << "The XML is: " << responseXml << std::endl;
 
                     m_resp.set(http::field::content_type, "text/xml");
                     m_resp.set(http::field::content_length, std::to_string(responseXml.size()));
@@ -163,7 +163,6 @@ namespace rosasio
         {
             if (!error)
             {
-                std::cout << "Accepted connection\n";
                 conn->start();
                 m_connections.push_back(conn);
             }
