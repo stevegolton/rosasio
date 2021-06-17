@@ -84,8 +84,10 @@ namespace rosasio
 
             try
             {
-                boost::asio::write(m_sock, boost::asio::buffer(&serial_size, sizeof(serial_size)));
-                boost::asio::write(m_sock, boost::asio::buffer(buffer.get(), serial_size));
+                std::vector<boost::asio::const_buffer> gather;
+                gather.push_back(boost::asio::buffer(&serial_size, sizeof(serial_size)));
+                gather.push_back(boost::asio::buffer(buffer.get(), serial_size));
+                boost::asio::write(m_sock, gather);
             }
             catch (const boost::system::system_error &e)
             {
