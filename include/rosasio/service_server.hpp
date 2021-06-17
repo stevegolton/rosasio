@@ -97,7 +97,7 @@ namespace rosasio
 
             if (0 == m_msglen)
             {
-                do_call();
+                handle_call();
             }
             else
             {
@@ -110,7 +110,7 @@ namespace rosasio
             }
         }
 
-        void do_call()
+        void handle_call()
         {
             namespace ser = ros::serialization;
 
@@ -148,7 +148,7 @@ namespace rosasio
                 return;
             }
 
-            do_call();
+            handle_call();
         }
 
         void handle_write(boost::system::error_code ec)
