@@ -182,6 +182,20 @@ target_link_libraries(example_server
   ${PROJECT_NAME}
 )
 
+add_executable(perf_subscriber src/perf_subscriber.cpp)
+add_dependencies(perf_subscriber ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(perf_subscriber
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+)
+
+add_executable(perf_publisher src/perf_publisher.cpp)
+add_dependencies(perf_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(perf_publisher
+  ${catkin_LIBRARIES}
+  ${PROJECT_NAME}
+)
+
 #############
 ## Install ##
 #############
