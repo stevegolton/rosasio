@@ -1,23 +1,29 @@
 # rosasio
 
 ## Introduction
-- Everyone's getting excited about ROS2 but that doesn't mean we can still have some fun with the original ROS
-- rosasio is a rewrite of the roscpp library designed around of `boost::asio`
-- The main reason to use this is library over roscpp is so you can use a single event loop for ROS and any other event driven IO that boost::asio supports, such as:
+- rosasio is a complete rewrite of the `ros_comm` library designed around `boost::asio`
+- The main reason to use this is library over `ros_comm` is in order to use a single event loop for ROS and any other event driven IO that `boost::asio` supports, such as:
   - Serial devices
   - Raw sockets
-  - HTTP servers/clients
-  - Any arbitrary file descriptor
-- ... without having to resort to using threads or a polling approach.
+  - HTTP + websockets via `boost::beast`
+  - Joydev devices
+  - CAN devices
+  - A variety of timers via`boost::asio::*_timer`
+  - eventfd, pipes, mqueues, or any arbitrary file descriptor via `boost::asio::posix::stream_descriptor`
+- The main use case for this library is for drivers which usually communicate with some external device. Traditionally this is done using another thread or a polled approach, but this library allows the same driver to be written using a single threaded approach.
 - Primary goals:
-  - Similar API to the current roscpp library, while also allowing users to get access to the `boost::asio::io_context` in order to use it for their own IO.
-  - Single threaded, avoiding bugs caused by data races
-  - More responsive than roscpp (no arbitrary sleeps)
-  - More efficient and higher throughput of smaller messages compared to roscpp
+  - Similar API to the current roscpp library, while also exposing the underlying `boost::asio::io_context`.
+  - Entirely single threaded, which improves stability and removes an antire category of bugs.
+  - Setting up and tearing down subscriptions should be more responsive than `ros_comm` (no arbitrary sleeps).
+  - More efficient and higher throughput of smaller messages compared to `ros_comm`.
 - Secondary goals:
-  - Optional async service clients
-  - Only implement what you need (bring your own logger, timers, etc)
-  - Allows multiple nodes in the same process & event loop
+  - Optional async service clients.
+  - Only implement what you need (bring your own logger, timers, etc).
+  - Allow multiple nodes in the same process using the same event loop.
+  - Unix domain sockets as an alternative.
+- Missing features:
+  - Efficient interprocess communication.
+  - ROS logging macros + logging to `/rosout`.
 
 ## Examples
 See the /src folder for example clients.
