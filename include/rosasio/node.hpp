@@ -20,6 +20,12 @@ namespace rosasio
         virtual void notify() = 0;
     };
 
+    struct TopicInfo
+    {
+        unsigned short tcp_port;
+        std::string uds_name;
+    };
+
     class Exec
     {
     public:
@@ -27,11 +33,12 @@ namespace rosasio
             : m_signals(m_ioc, SIGINT, SIGTERM)
         {
             m_signals.async_wait([this](const boost::system::error_code &ec,
-                                        int signal_number) {
-                (void)signal_number;
-                if (!ec)
-                    m_ioc.stop();
-            });
+                                        int signal_number)
+                                 {
+                                     (void)signal_number;
+                                     if (!ec)
+                                         m_ioc.stop();
+                                 });
         }
 
         boost::asio::io_context &get_ioc()
@@ -60,13 +67,70 @@ namespace rosasio
         {
             std::cout << "Started XMLRPC server at: http://" << m_hostname << ":" << m_xmlrpc_server.get_port() << "\n";
 
-            m_xmlrpc_server.register_method("requestTopic", [this](auto &params) {
-
-                try
+            m_xmlrpc_server.register_method(
+                "requestTopic",
+                [this](auto &params)
                 {
-                    auto topic_name = params.getString(1);
-                    auto iter = m_topics.find(topic_name);
-                    if (iter != m_topics.end())
+                    try
+                    {
+                        auto topic_name = params.getString(1);
+                        auto iter = m_topics.find(topic_name);
+                        if (iter != m_topics.end())
+                        {
+                            std::vector<xmlrpc_c::value> ep;
+                            ep.push_back(xmlrpc_c::value_string("TCPROS"));
+                            ep.push_back(xmlrpc_c::value_string(m_hostname));
+                            ep.push_back(xmlrpc_c::value_int(iter->second.tcp_port));
+                            xmlrpc_c::value_array tcpros_ep(ep);
+
+                            ep.clear();
+                            ep.push_back(xmlrpc_c::value_string("UDSROS"));
+                            ep.push_back(xmlrpc_c::value_string(iter->second.uds_name));
+                            xmlrpc_c::value_array udsros_ep(ep);
+
+                            std::vector<xmlrpc_c::value> arrayData;
+                            arrayData.push_back(xmlrpc_c::value_int(1));
+                            arrayData.push_back(xmlrpc_c::value_string("OK"));
+                            arrayData.push_back(tcpros_ep);
+                            arrayData.push_back(udsros_ep);
+                            xmlrpc_c::value_array array1(arrayData);
+
+                            xmlrpc_c::rpcOutcome outcome(array1);
+
+                            return outcome;
+                        }
+                        else
+                        {
+                            std::vector<xmlrpc_c::value> arrayData;
+                            arrayData.push_back(xmlrpc_c::value_int(1));
+                            arrayData.push_back(xmlrpc_c::value_string("OK"));
+                            xmlrpc_c::value_array array1(arrayData);
+
+                            xmlrpc_c::rpcOutcome outcome(array1);
+
+                            return outcome;
+                        }
+                    }
+                    catch (const xmlrpc_c::fault &e)
+                    {
+                        std::vector<xmlrpc_c::value> arrayData;
+                        arrayData.push_back(xmlrpc_c::value_int(1));
+                        arrayData.push_back(xmlrpc_c::value_string("OOPS!"));
+                        xmlrpc_c::value_array array1(arrayData);
+
+                        xmlrpc_c::rpcOutcome outcome(array1);
+
+                        return outcome;
+                    }
+                });
+
+            m_xmlrpc_server.register_method(
+                "lookupService",
+                [this](auto &params)
+                {
+                    auto service_name = params.getString(1);
+                    auto iter = m_services.find(service_name);
+                    if (iter != m_services.end())
                     {
                         std::vector<xmlrpc_c::value> ep;
                         ep.push_back(xmlrpc_c::value_string("TCPROS"));
@@ -95,106 +159,68 @@ namespace rosasio
 
                         return outcome;
                     }
-                }
-                catch (const xmlrpc_c::fault &e)
+                });
+
+            m_xmlrpc_server.register_method(
+                "publisherUpdate",
+                [this](auto &params)
                 {
-                    std::vector<xmlrpc_c::value> arrayData;
-                    arrayData.push_back(xmlrpc_c::value_int(1));
-                    arrayData.push_back(xmlrpc_c::value_string("OOPS!"));
-                    xmlrpc_c::value_array array1(arrayData);
+                    auto topic_name = params.getString(1);
+                    std::vector<xmlrpc_c::value> publisher_uris = params.getArray(2);
 
-                    xmlrpc_c::rpcOutcome outcome(array1);
+                    auto iter = m_subscribers.find(topic_name);
+                    if (iter != m_subscribers.end())
+                    {
+                        std::vector<std::string> uris;
 
-                    return outcome;
-                }
-            });
+                        std::transform(
+                            publisher_uris.begin(),
+                            publisher_uris.end(),
+                            std::back_inserter(uris),
+                            [](const auto &value)
+                            {
+                                return xmlrpc_c::value_string(value);
+                            });
 
-            m_xmlrpc_server.register_method("lookupService", [this](auto &params) {
-                auto service_name = params.getString(1);
-                auto iter = m_services.find(service_name);
-                if (iter != m_services.end())
-                {
-                    std::vector<xmlrpc_c::value> ep;
-                    ep.push_back(xmlrpc_c::value_string("TCPROS"));
-                    ep.push_back(xmlrpc_c::value_string(m_hostname));
-                    ep.push_back(xmlrpc_c::value_int(iter->second));
-                    xmlrpc_c::value_array ep_xml(ep);
+                        iter->second(uris);
+                    }
 
-                    std::vector<xmlrpc_c::value> arrayData;
-                    arrayData.push_back(xmlrpc_c::value_int(1));
-                    arrayData.push_back(xmlrpc_c::value_string("OK"));
-                    arrayData.push_back(ep_xml);
-                    xmlrpc_c::value_array array1(arrayData);
-
-                    xmlrpc_c::rpcOutcome outcome(array1);
-
-                    return outcome;
-                }
-                else
-                {
                     std::vector<xmlrpc_c::value> arrayData;
                     arrayData.push_back(xmlrpc_c::value_int(1));
                     arrayData.push_back(xmlrpc_c::value_string("OK"));
                     xmlrpc_c::value_array array1(arrayData);
+                    return xmlrpc_c::rpcOutcome(array1);
+                });
+
+            m_xmlrpc_server.register_method(
+                "getPid",
+                [this](auto &)
+                {
+                    std::vector<xmlrpc_c::value> arrayData;
+                    arrayData.push_back(xmlrpc_c::value_int(1));
+                    arrayData.push_back(xmlrpc_c::value_string("OK"));
+                    arrayData.push_back(xmlrpc_c::value_int(getpid()));
+                    xmlrpc_c::value_array array1(arrayData);
 
                     xmlrpc_c::rpcOutcome outcome(array1);
 
                     return outcome;
-                }
-            });
+                });
 
-            m_xmlrpc_server.register_method("publisherUpdate", [this](auto &params) {
-                auto topic_name = params.getString(1);
-                std::vector<xmlrpc_c::value> publisher_uris = params.getArray(2);
-
-                auto iter = m_subscribers.find(topic_name);
-                if (iter != m_subscribers.end())
+            m_xmlrpc_server.register_method(
+                "shutdown",
+                [this](auto &)
                 {
-                    std::vector<std::string> uris;
+                    std::vector<xmlrpc_c::value> arrayData;
+                    arrayData.push_back(xmlrpc_c::value_int(1));
+                    arrayData.push_back(xmlrpc_c::value_string("OK"));
+                    xmlrpc_c::value_array array1(arrayData);
+                    xmlrpc_c::rpcOutcome outcome(array1);
 
-                    std::transform(
-                        publisher_uris.begin(),
-                        publisher_uris.end(),
-                        std::back_inserter(uris),
-                        [](const auto &value) {
-                            return xmlrpc_c::value_string(value);
-                        });
+                    m_ioc.stop();
 
-                    iter->second(uris);
-                }
-
-                std::vector<xmlrpc_c::value> arrayData;
-                arrayData.push_back(xmlrpc_c::value_int(1));
-                arrayData.push_back(xmlrpc_c::value_string("OK"));
-                xmlrpc_c::value_array array1(arrayData);
-                return xmlrpc_c::rpcOutcome(array1);
-            });
-
-            m_xmlrpc_server.register_method("getPid", [this](auto &) {
-
-                std::vector<xmlrpc_c::value> arrayData;
-                arrayData.push_back(xmlrpc_c::value_int(1));
-                arrayData.push_back(xmlrpc_c::value_string("OK"));
-                arrayData.push_back(xmlrpc_c::value_int(getpid()));
-                xmlrpc_c::value_array array1(arrayData);
-
-                xmlrpc_c::rpcOutcome outcome(array1);
-
-                return outcome;
-            });
-
-            m_xmlrpc_server.register_method("shutdown", [this](auto &) {
-
-                std::vector<xmlrpc_c::value> arrayData;
-                arrayData.push_back(xmlrpc_c::value_int(1));
-                arrayData.push_back(xmlrpc_c::value_string("OK"));
-                xmlrpc_c::value_array array1(arrayData);
-                xmlrpc_c::rpcOutcome outcome(array1);
-
-                m_ioc.stop();
-
-                return outcome;
-            });
+                    return outcome;
+                });
         }
 
         boost::asio::io_context &get_ioc() const
@@ -231,11 +257,11 @@ namespace rosasio
          * @param topic_name 
          */
         template <class MsgType>
-        void register_publisher(const std::string &topic_name, unsigned short port)
+        void register_publisher(const std::string &topic_name, unsigned short port, const std::string &uds_name)
         {
             using namespace std;
 
-            cout << "Registering publisher on topic " << topic_name << " using port " << port << "\n";
+            cout << "Registering publisher on topic " << topic_name << " using port " << port << " & uds " << uds_name << " \n";
 
             const std::string serverUrl("http://localhost:11311");
             const std::string methodName("registerPublisher");
@@ -260,7 +286,8 @@ namespace rosasio
 
             std::vector<std::string> ret;
 
-            m_topics.insert(std::make_pair(topic_name, port));
+            TopicInfo info{port, uds_name};
+            m_topics.insert(std::make_pair(topic_name, std::move(info)));
         }
 
         template <class MsgType>
@@ -438,7 +465,7 @@ namespace rosasio
         std::string m_name;
         rosasio::XmlRpcServer m_xmlrpc_server;
         std::string m_hostname;
-        std::map<std::string, unsigned short> m_topics;
+        std::map<std::string, TopicInfo> m_topics;
         std::map<std::string, SubscriberCallback> m_subscribers;
         std::map<std::string, unsigned short> m_services;
     };
