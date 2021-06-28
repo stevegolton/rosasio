@@ -15,7 +15,7 @@ namespace rosasio
     template <class MsgType>
     class SubscriberConnectonBase : public std::enable_shared_from_this<SubscriberConnectonBase<MsgType>>
     {
-        public:
+    public:
         virtual void close() = 0;
         virtual void publish(const MsgType &msg) = 0;
     };
@@ -162,18 +162,21 @@ namespace rosasio
 
                     // Start another read
                     auto shared_this = std::dynamic_pointer_cast<SubscriberConnection<Protocol, MsgType>>(this->shared_from_this());
-                    boost::asio::async_read(m_sock,
-                                            boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
-                                            std::bind(&SubscriberConnection::handle_close, shared_this, _1, _2));
+
+                    m_sock.async_read_some(
+                        boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
+                        std::bind(
+                            &SubscriberConnection::handle_close,
+                            shared_this, _1, _2));
                 }
             }
         }
 
-        void handle_close(boost::system::error_code ec, std::size_t)
+        void handle_close(boost::system::error_code ec, std::size_t bytes_read)
         {
             using namespace std::placeholders;
 
-            if (ec == boost::asio::error::eof)
+            if (ec == boost::asio::error::eof || bytes_read == 0)
             {
                 if (auto pool = m_pool.lock())
                 {
@@ -184,9 +187,11 @@ namespace rosasio
             else
             {
                 auto shared_this = std::dynamic_pointer_cast<SubscriberConnection<Protocol, MsgType>>(this->shared_from_this());
-                boost::asio::async_read(m_sock,
-                                        boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
-                                        std::bind(&SubscriberConnection::handle_close, shared_this, _1, _2));
+                m_sock.async_read_some(
+                        boost::asio::buffer(&m_msglen, sizeof(m_msglen)),
+                        std::bind(
+                            &SubscriberConnection::handle_close,
+                            shared_this, _1, _2));
             }
         }
 
